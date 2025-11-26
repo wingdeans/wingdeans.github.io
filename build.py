@@ -4,6 +4,7 @@ from glob import glob
 from pathlib import Path
 
 d = Path(__file__).parent.absolute()
+template = (d / "src/template.html").read_text()
 
 def outdated(src, dst):
     try:
@@ -12,8 +13,9 @@ def outdated(src, dst):
         return True
     return dtime < Path(src).stat().st_mtime
 
-if outdated(src := d/"src/index.html", dst := d/"docs/index.html"):
-    shutil.copyfile(src, dst)
+for src in d.glob("src/*.frag.html"):
+    dst = d / "docs" / (src.name.removesuffix(".frag.html") + ".html")
+    dst.write_text(template.format(fragment=src.read_text()))
 
 for src in d.glob("src/*.typ"):
     dst = d / "docs" / Path(src.name).with_suffix(".html")
@@ -23,8 +25,8 @@ for src in d.glob("src/*.typ"):
             "--features=html", "--format=html",
             src, "-"
         ],
-        capture_output=True
+        stdout=subprocess.PIPE,
+        encoding="utf-8"
     ).stdout
-
-    with open(dst, "wb") as f:
-        f.write(html[html.index(b"<body>")+6 : html.rindex(b"</body>")])
+    html = html[html.index("<body>")+6 : html.rindex("</body>")]
+    dst.write_text(template.format(fragment=html))
